@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -m pip install Flask pandas requests requests-cache plotly tqdm click python-dotenv)",
+      "Bash(python -c \"from app import create_app; app = create_app\\(\\); print\\(''App created successfully''\\)\")",
+      "Bash(python -c \":*)"
+    ]
+  }
+}

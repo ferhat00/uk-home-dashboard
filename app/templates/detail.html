@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+{% block title %}{{ area.code }} {{ area.name }} — UK Home Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Overview</a></li>
+                <li class="breadcrumb-item active">{{ area.code }} — {{ area.name }}</li>
+            </ol>
+        </nav>
+        <h2><i class="bi bi-geo-alt-fill me-2"></i>{{ area.code }} — {{ area.name }}</h2>
+    </div>
+</div>
+
+<!-- Score Summary -->
+{% if area_score %}
+<div class="row g-3 mb-4">
+    <div class="col-md-2 col-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <small class="text-muted">Overall</small>
+                <h3 class="mb-0">{{ "%.0f"|format(area_score.composite_score) }}</h3>
+                <small>Rank #{{ area_score.rank }}</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <small class="text-muted">Property</small>
+                <h4 class="mb-0">{{ "%.0f"|format(area_score.property_value_score) }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <small class="text-muted">Schools</small>
+                <h4 class="mb-0">{{ "%.0f"|format(area_score.school_quality_score) }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <small class="text-muted">Safety</small>
+                <h4 class="mb-0">{{ "%.0f"|format(area_score.crime_safety_score) }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <small class="text-muted">Transport</small>
+                <h4 class="mb-0">{{ "%.0f"|format(area_score.transport_score) }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-2 col-4">
+        <div class="card text-center">
+            <div class="card-body py-2">
+                <small class="text-muted">Amenities</small>
+                <h4 class="mb-0">{{ "%.0f"|format(area_score.amenities_score) }}</h4>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Map -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-map me-2"></i>Area Map</h5>
+                <div class="form-check form-switch d-inline-block ms-3" id="layer-toggles">
+                    <input class="form-check-input" type="checkbox" id="toggle-schools" checked>
+                    <label class="form-check-label me-3" for="toggle-schools">Schools</label>
+                    <input class="form-check-input" type="checkbox" id="toggle-stations" checked>
+                    <label class="form-check-label me-3" for="toggle-stations">Stations</label>
+                    <input class="form-check-input" type="checkbox" id="toggle-amenities">
+                    <label class="form-check-label" for="toggle-amenities">Amenities</label>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="detail-map" style="height: 450px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Property Prices -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-currency-pound me-2"></i>Property Prices</h5>
+            </div>
+            <div class="card-body">
+                <div id="price-trend-chart" style="height: 300px;"></div>
+
+                {% if type_prices %}
+                <h6 class="mt-3">By Property Type</h6>
+                <table class="table table-sm">
+                    <thead><tr><th>Type</th><th>Median</th><th>Mean</th><th>Transactions</th></tr></thead>
+                    <tbody>
+                    {% for tp in type_prices %}
+                    <tr>
+                        <td>{{ property_type_labels.get(tp.property_type, tp.property_type) }}</td>
+                        <td>&pound;{{ "{:,.0f}"|format(tp.median_price) }}</td>
+                        <td>&pound;{{ "{:,.0f}"|format(tp.mean_price) }}</td>
+                        <td>{{ tp.transactions }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+
+                {% if transactions %}
+                <h6 class="mt-3">Recent Transactions</h6>
+                <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                    <table class="table table-sm table-striped">
+                        <thead><tr><th>Date</th><th>Price</th><th>Type</th><th>Address</th></tr></thead>
+                        <tbody>
+                        {% for t in transactions[:20] %}
+                        <tr>
+                            <td><small>{{ t.date[:10] if t.date else '' }}</small></td>
+                            <td>&pound;{{ "{:,.0f}"|format(t.price) }}</td>
+                            <td>{{ property_type_labels.get(t.property_type, t.property_type) }}</td>
+                            <td><small>{{ t.paon }} {{ t.street }}</small></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Crime -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-shield-exclamation me-2"></i>Crime</h5>
+            </div>
+            <div class="card-body">
+                <div id="crime-trend-chart" style="height: 250px;"></div>
+
+                {% if crime_categories %}
+                <h6 class="mt-3">By Category (12 months)</h6>
+                <div id="crime-category-chart" style="height: 250px;"></div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-2">
+    <!-- Schools -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-mortarboard me-2"></i>Schools ({{ schools|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if schools %}
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead><tr><th>School</th><th>Phase</th><th>Ofsted</th><th>Pupils</th></tr></thead>
+                        <tbody>
+                        {% for s in schools %}
+                        <tr>
+                            <td>{{ s.school_name }}</td>
+                            <td><small>{{ s.phase }}</small></td>
+                            <td>
+                                {% if s.ofsted_rating %}
+                                <span class="badge
+                                    {% if s.ofsted_rating == 'Outstanding' %}bg-success
+                                    {% elif s.ofsted_rating == 'Good' %}bg-primary
+                                    {% elif 'Requires' in (s.ofsted_rating or '') %}bg-warning text-dark
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ s.ofsted_rating }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ s.num_pupils|int if s.num_pupils and s.num_pupils == s.num_pupils else 'N/A' }}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No school data available. Run the schools ETL.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Transport & Noise -->
+    <div class="col-lg-6">
+        <!-- Transport -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-train-front me-2"></i>Transport</h5>
+            </div>
+            <div class="card-body">
+                {% if stations %}
+                <table class="table table-sm">
+                    <thead><tr><th>Station</th><th>Modes</th><th>Distance</th></tr></thead>
+                    <tbody>
+                    {% for st in stations[:8] %}
+                    <tr>
+                        <td>{{ st.name }}</td>
+                        <td><small>{{ st.modes }}</small></td>
+                        <td>{{ "%.1f"|format(st.distance_km) }} km</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted">No transport data available. Run the transport ETL.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Noise -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-volume-up me-2"></i>Noise</h5>
+            </div>
+            <div class="card-body">
+                {% if noise %}
+                <div class="row text-center g-2">
+                    <div class="col-4">
+                        <div class="p-2 rounded {% if noise.road_lden_db > 53 %}bg-warning-subtle{% else %}bg-success-subtle{% endif %}">
+                            <small class="text-muted d-block">Road</small>
+                            <strong>{{ noise.road_lden_db }} dB</strong>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 rounded {% if noise.rail_lden_db > 54 %}bg-warning-subtle{% else %}bg-success-subtle{% endif %}">
+                            <small class="text-muted d-block">Rail</small>
+                            <strong>{{ noise.rail_lden_db }} dB</strong>
+                        </div>
+                    </div>
+                    <div class="col-4">
+                        <div class="p-2 rounded {% if noise.air_lden_db > 45 %}bg-warning-subtle{% else %}bg-success-subtle{% endif %}">
+                            <small class="text-muted d-block">Air</small>
+                            <strong>{{ noise.air_lden_db }} dB</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <small class="text-muted">{{ noise.notes }}</small>
+                    {% if noise.above_who_threshold %}
+                    <br><small class="text-warning"><i class="bi bi-exclamation-triangle"></i> Above WHO recommended threshold (53 dB Lden)</small>
+                    {% endif %}
+                </div>
+                {% else %}
+                <p class="text-muted">No noise data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Amenities -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-shop me-2"></i>Amenities ({{ amenities|length }})</h5>
+            </div>
+            <div class="card-body">
+                {% if amenities %}
+                <div class="row g-2">
+                    {% set ns = namespace(categories={}) %}
+                    {% for a in amenities %}
+                        {% if a.category not in ns.categories %}
+                            {% set _ = ns.categories.update({a.category: []}) %}
+                        {% endif %}
+                        {% set _ = ns.categories[a.category].append(a) %}
+                    {% endfor %}
+
+                    {% for cat, items in ns.categories.items() %}
+                    <div class="col-md-3 col-sm-6">
+                        <div class="card bg-light">
+                            <div class="card-body py-2">
+                                <h6 class="card-title text-capitalize">{{ cat.replace('_', ' ') }} <span class="badge bg-secondary">{{ items|length }}</span></h6>
+                                <ul class="list-unstyled mb-0" style="max-height: 120px; overflow-y: auto;">
+                                {% for item in items[:10] %}
+                                    <li><small>{{ item.name or item.brand or 'Unnamed' }}</small></li>
+                                {% endfor %}
+                                {% if items|length > 10 %}
+                                    <li><small class="text-muted">...and {{ items|length - 10 }} more</small></li>
+                                {% endif %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">No amenity data available. Run the amenities ETL.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Detail Map ──
+const areaLat = {{ area.lat }};
+const areaLng = {{ area.lng }};
+const detailMap = L.map('detail-map').setView([areaLat, areaLng], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(detailMap);
+
+// Area center
+L.marker([areaLat, areaLng]).addTo(detailMap)
+    .bindPopup('<strong>{{ area.code }} — {{ area.name }}</strong>');
+
+// School layer
+const schoolLayer = L.layerGroup();
+const schoolsData = {{ schools|tojson }};
+const ofstedColors = {
+    'Outstanding': '#198754',
+    'Good': '#0d6efd',
+    'Requires improvement': '#ffc107',
+    'Requires Improvement': '#ffc107',
+    'Inadequate': '#dc3545',
+};
+schoolsData.forEach(s => {
+    if (s.lat && s.lng) {
+        const color = ofstedColors[s.ofsted_rating] || '#6c757d';
+        L.circleMarker([s.lat, s.lng], {
+            radius: 8, fillColor: color, color: '#fff', weight: 1, fillOpacity: 0.8
+        }).addTo(schoolLayer)
+          .bindPopup(`<strong>${s.school_name}</strong><br>Ofsted: ${s.ofsted_rating || 'N/A'}<br>Pupils: ${s.num_pupils || 'N/A'}`);
+    }
+});
+schoolLayer.addTo(detailMap);
+
+// Station layer
+const stationLayer = L.layerGroup();
+const stationsData = {{ stations|tojson }};
+stationsData.forEach(s => {
+    if (s.lat && s.lng) {
+        L.circleMarker([s.lat, s.lng], {
+            radius: 6, fillColor: '#0d6efd', color: '#fff', weight: 1, fillOpacity: 0.9
+        }).addTo(stationLayer)
+          .bindPopup(`<strong>${s.name}</strong><br>${s.modes}<br>${s.distance_km} km`);
+    }
+});
+stationLayer.addTo(detailMap);
+
+// Amenity layer
+const amenityLayer = L.layerGroup();
+const amenitiesData = {{ amenities|tojson }};
+amenitiesData.forEach(a => {
+    if (a.lat && a.lng) {
+        L.circleMarker([a.lat, a.lng], {
+            radius: 4, fillColor: '#6f42c1', color: '#fff', weight: 1, fillOpacity: 0.7
+        }).addTo(amenityLayer)
+          .bindPopup(`<strong>${a.name || a.brand || a.category}</strong><br>${a.category}`);
+    }
+});
+
+// Layer toggles
+document.getElementById('toggle-schools').addEventListener('change', e => {
+    e.target.checked ? schoolLayer.addTo(detailMap) : detailMap.removeLayer(schoolLayer);
+});
+document.getElementById('toggle-stations').addEventListener('change', e => {
+    e.target.checked ? stationLayer.addTo(detailMap) : detailMap.removeLayer(stationLayer);
+});
+document.getElementById('toggle-amenities').addEventListener('change', e => {
+    e.target.checked ? amenityLayer.addTo(detailMap) : detailMap.removeLayer(amenityLayer);
+});
+
+// ── Price Trend Chart ──
+const priceTrend = JSON.parse('{{ price_trend|safe }}');
+if (priceTrend.length > 0) {
+    Plotly.newPlot('price-trend-chart', [{
+        x: priceTrend.map(p => p.year),
+        y: priceTrend.map(p => p.median_price),
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'Median Price',
+        line: { color: '#0d6efd' },
+    }], {
+        margin: { t: 20, b: 40, l: 70, r: 20 },
+        yaxis: { title: 'Price (£)', tickformat: ',.0f' },
+        xaxis: { title: 'Year' },
+    }, { responsive: true });
+}
+
+// ── Crime Trend Chart ──
+const crimeTrend = JSON.parse('{{ crime_trend|safe }}');
+if (crimeTrend.length > 0) {
+    Plotly.newPlot('crime-trend-chart', [{
+        x: crimeTrend.map(c => c.month),
+        y: crimeTrend.map(c => c.count),
+        type: 'scatter',
+        mode: 'lines+markers',
+        fill: 'tozeroy',
+        line: { color: '#dc3545' },
+    }], {
+        margin: { t: 20, b: 40, l: 50, r: 20 },
+        yaxis: { title: 'Crimes' },
+    }, { responsive: true });
+}
+
+// ── Crime Category Chart ──
+const crimeCategories = {{ crime_categories|tojson }};
+if (crimeCategories.length > 0) {
+    Plotly.newPlot('crime-category-chart', [{
+        x: crimeCategories.map(c => c.count),
+        y: crimeCategories.map(c => c.category_name || c.category),
+        type: 'bar',
+        orientation: 'h',
+        marker: { color: '#dc3545' },
+    }], {
+        margin: { t: 10, b: 30, l: 180, r: 20 },
+    }, { responsive: true });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Overview — UK Home Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <h2><i class="bi bi-speedometer2 me-2"></i>Overview Dashboard</h2>
+        <p class="text-muted mb-0">Comparing {{ areas|length }} areas across property, schools, crime, transport, amenities &amp; noise</p>
+    </div>
+</div>
+
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+    {% if kpis.get('best_overall') %}
+    <div class="col-md-3 col-sm-6">
+        <div class="card kpi-card border-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-subtitle text-muted mb-1">Best Overall</h6>
+                        <h4 class="card-title mb-0">{{ kpis.best_overall.area_name }}</h4>
+                        <small class="text-success">Score: {{ "%.1f"|format(kpis.best_overall.composite_score) }}/100</small>
+                    </div>
+                    <i class="bi bi-trophy-fill text-success fs-2"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if kpis.get('best_value') %}
+    <div class="col-md-3 col-sm-6">
+        <div class="card kpi-card border-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-subtitle text-muted mb-1">Best Value</h6>
+                        <h4 class="card-title mb-0">{{ kpis.best_value.area_name }}</h4>
+                        <small class="text-primary">
+                            {% if kpis.best_value.median_price and kpis.best_value.median_price == kpis.best_value.median_price %}
+                            &pound;{{ "{:,.0f}"|format(kpis.best_value.median_price) }}
+                            {% else %}
+                            Score: {{ "%.1f"|format(kpis.best_value.property_value_score) }}
+                            {% endif %}
+                        </small>
+                    </div>
+                    <i class="bi bi-house-fill text-primary fs-2"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if kpis.get('safest') %}
+    <div class="col-md-3 col-sm-6">
+        <div class="card kpi-card border-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-subtitle text-muted mb-1">Safest Area</h6>
+                        <h4 class="card-title mb-0">{{ kpis.safest.area_name }}</h4>
+                        <small class="text-info">Safety: {{ "%.1f"|format(kpis.safest.crime_safety_score) }}/100</small>
+                    </div>
+                    <i class="bi bi-shield-check text-info fs-2"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if kpis.get('best_schools') %}
+    <div class="col-md-3 col-sm-6">
+        <div class="card kpi-card border-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-subtitle text-muted mb-1">Best Schools</h6>
+                        <h4 class="card-title mb-0">{{ kpis.best_schools.area_name }}</h4>
+                        <small class="text-warning">Score: {{ "%.1f"|format(kpis.best_schools.school_quality_score) }}/100</small>
+                    </div>
+                    <i class="bi bi-mortarboard-fill text-warning fs-2"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <!-- Map -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-map me-2"></i>Area Map</h5>
+                <small class="text-muted">Colour = composite score</small>
+            </div>
+            <div class="card-body p-0">
+                <div id="overview-map" style="height: 500px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Radar Chart -->
+    <div class="col-lg-5">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Score Breakdown</h5>
+            </div>
+            <div class="card-body">
+                <div id="radar-chart" style="height: 400px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rankings Table -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-table me-2"></i>Area Rankings</h5>
+                <a href="{{ url_for('main.compare') }}" class="btn btn-sm btn-outline-primary">
+                    Compare selected <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Area</th>
+                                <th>Composite</th>
+                                <th>Property</th>
+                                <th>Schools</th>
+                                <th>Safety</th>
+                                <th>Transport</th>
+                                <th>Amenities</th>
+                                <th>Noise</th>
+                                <th>Green</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in scores %}
+                            <tr>
+                                <td><span class="badge bg-secondary">{{ s.rank }}</span></td>
+                                <td>
+                                    <strong>{{ s.area_code }}</strong>
+                                    <br><small class="text-muted">{{ s.area_name }}</small>
+                                </td>
+                                <td><span class="badge score-badge" style="background-color: {{ score_color(s.composite_score) }}">{{ "%.0f"|format(s.composite_score) }}</span></td>
+                                <td>{{ "%.0f"|format(s.property_value_score) }}</td>
+                                <td>{{ "%.0f"|format(s.school_quality_score) }}</td>
+                                <td>{{ "%.0f"|format(s.crime_safety_score) }}</td>
+                                <td>{{ "%.0f"|format(s.transport_score) }}</td>
+                                <td>{{ "%.0f"|format(s.amenities_score) }}</td>
+                                <td>{{ "%.0f"|format(s.noise_score) }}</td>
+                                <td>{{ "%.0f"|format(s.green_space_score) }}</td>
+                                <td>
+                                    <a href="{{ url_for('main.area_detail', area_code=s.area_code) }}"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-arrow-right"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// ── Overview Map ──
+const areas = {{ areas|tojson }};
+const scores = JSON.parse('{{ scores_json|safe }}');
+
+const map = L.map('overview-map').setView([51.65, -0.17], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+// Score to colour
+function scoreColor(score) {
+    if (score >= 70) return '#198754';
+    if (score >= 55) return '#0d6efd';
+    if (score >= 40) return '#ffc107';
+    return '#dc3545';
+}
+
+// Add area markers
+scores.forEach(s => {
+    const area = areas.find(a => a.code === s.area_code);
+    if (!area) return;
+
+    const color = scoreColor(s.composite_score);
+
+    L.circleMarker([area.lat, area.lng], {
+        radius: 14,
+        fillColor: color,
+        color: '#fff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.85,
+    }).addTo(map)
+      .bindPopup(`
+        <strong>${s.area_code} — ${s.area_name}</strong><br>
+        Composite Score: <strong>${s.composite_score.toFixed(1)}</strong>/100<br>
+        <small>Rank #${s.rank}</small><br>
+        <a href="/area/${s.area_code}">View details &rarr;</a>
+      `)
+      .bindTooltip(`${s.area_code}: ${s.composite_score.toFixed(0)}`, {
+        permanent: true,
+        direction: 'center',
+        className: 'score-tooltip'
+      });
+});
+
+// ── Radar Chart ──
+const radarData = JSON.parse('{{ radar_data|safe }}');
+
+if (radarData.length > 0) {
+    const traces = radarData.map(area => ({
+        type: 'scatterpolar',
+        r: area.values,
+        theta: area.labels,
+        fill: 'toself',
+        name: `${area.area_code} — ${area.area_name}`,
+        opacity: 0.6,
+    }));
+
+    Plotly.newPlot('radar-chart', traces, {
+        polar: {
+            radialaxis: {
+                visible: true,
+                range: [0, 100],
+            }
+        },
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.15 },
+        margin: { t: 30, b: 60, l: 60, r: 60 },
+    }, { responsive: true });
+}
+</script>
+{% endblock %}

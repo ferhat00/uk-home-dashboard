@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block title %}Settings — UK Home Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <h2><i class="bi bi-gear me-2"></i>Settings</h2>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Areas of Interest -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-geo-alt me-2"></i>Areas of Interest</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead><tr><th>Code</th><th>Name</th><th>Lat</th><th>Lng</th></tr></thead>
+                    <tbody>
+                    {% for area in areas %}
+                    <tr>
+                        <td><strong>{{ area.code }}</strong></td>
+                        <td>{{ area.name }}</td>
+                        <td>{{ area.lat }}</td>
+                        <td>{{ area.lng }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                <p class="text-muted"><small>Edit <code>config.py</code> → <code>AREAS_OF_INTEREST</code> to add or remove areas, then re-run the ETL.</small></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Budget & Property -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-currency-pound me-2"></i>Budget &amp; Property Preferences</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Budget Range</label>
+                    <div class="input-group">
+                        <span class="input-group-text">&pound;</span>
+                        <input type="text" class="form-control" value="{{ "{:,.0f}".format(budget[0]) }}" disabled>
+                        <span class="input-group-text">to &pound;</span>
+                        <input type="text" class="form-control" value="{{ "{:,.0f}".format(budget[1]) }}" disabled>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Property Types</label>
+                    <div>
+                        {% for code, label in property_type_labels.items() %}
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox"
+                                   {% if code in property_types %}checked{% endif %} disabled>
+                            <label class="form-check-label">{{ label }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <p class="text-muted"><small>Edit <code>config.py</code> to change budget and property type filters.</small></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3 mt-2">
+    <!-- Commute Destinations -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-signpost-2 me-2"></i>Commute Destinations</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead><tr><th>Destination</th><th>Lat</th><th>Lng</th></tr></thead>
+                    <tbody>
+                    {% for dest in commute_destinations %}
+                    <tr>
+                        <td>{{ dest.name }}</td>
+                        <td>{{ dest.lat }}</td>
+                        <td>{{ dest.lng }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scoring Weights -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Default Scoring Weights</h5>
+            </div>
+            <div class="card-body">
+                {% for key, val in weights.items() %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="text-capitalize">{{ key.replace('_', ' ') }}</span>
+                    <div class="d-flex align-items-center" style="width: 60%;">
+                        <div class="progress flex-grow-1 me-2" style="height: 8px;">
+                            <div class="progress-bar" style="width: {{ (val * 100)|int }}%"></div>
+                        </div>
+                        <small>{{ "%.0f"|format(val * 100) }}%</small>
+                    </div>
+                </div>
+                {% endfor %}
+                <p class="text-muted mt-2"><small>Adjust weights interactively on the <a href="{{ url_for('main.compare') }}">Compare page</a>.</small></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ETL Controls -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>Data Pipeline (ETL)</h5>
+            </div>
+            <div class="card-body">
+                <p>Run the data pipeline to fetch fresh data from all sources.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-primary etl-btn" data-source="all">
+                        <i class="bi bi-play-fill me-1"></i>Run All
+                    </button>
+                    <button class="btn btn-outline-secondary etl-btn" data-source="land_registry">Land Registry</button>
+                    <button class="btn btn-outline-secondary etl-btn" data-source="epc">EPC</button>
+                    <button class="btn btn-outline-secondary etl-btn" data-source="crime">Crime</button>
+                    <button class="btn btn-outline-secondary etl-btn" data-source="schools">Schools</button>
+                    <button class="btn btn-outline-secondary etl-btn" data-source="amenities">Amenities</button>
+                    <button class="btn btn-outline-secondary etl-btn" data-source="transport">Transport</button>
+                    <button class="btn btn-outline-secondary etl-btn" data-source="noise">Noise</button>
+                </div>
+                <div id="etl-status" class="mt-3" style="display: none;">
+                    <div class="alert alert-info" id="etl-running">
+                        <div class="spinner-border spinner-border-sm me-2"></div>
+                        Running ETL pipeline... This may take several minutes.
+                    </div>
+                    <div class="alert alert-success" id="etl-success" style="display: none;"></div>
+                    <div class="alert alert-danger" id="etl-error" style="display: none;"></div>
+                </div>
+                <div class="mt-3">
+                    <h6>CLI Alternative</h6>
+                    <code>python run_etl.py --all</code> or <code>python run_etl.py --source crime</code>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- API Keys Info -->
+<div class="row mt-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-key me-2"></i>API Keys</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead><tr><th>Service</th><th>Status</th><th>Registration</th></tr></thead>
+                    <tbody>
+                        <tr>
+                            <td>EPC Register</td>
+                            <td>
+                                {% if config.EPC_API_KEY %}
+                                <span class="badge bg-success">Configured</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">Not set</span>
+                                {% endif %}
+                            </td>
+                            <td><small>Set <code>EPC_API_KEY</code> in <code>.env</code></small></td>
+                        </tr>
+                        <tr>
+                            <td>TfL API</td>
+                            <td>
+                                {% if config.TFL_APP_KEY %}
+                                <span class="badge bg-success">Configured</span>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">Not set (optional)</span>
+                                {% endif %}
+                            </td>
+                            <td><small>Set <code>TFL_APP_KEY</code> in <code>.env</code></small></td>
+                        </tr>
+                        <tr>
+                            <td>Police.uk</td>
+                            <td><span class="badge bg-success">No key needed</span></td>
+                            <td><small>Free, no registration</small></td>
+                        </tr>
+                        <tr>
+                            <td>Overpass (OSM)</td>
+                            <td><span class="badge bg-success">No key needed</span></td>
+                            <td><small>Free, no registration</small></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.querySelectorAll('.etl-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const source = btn.dataset.source;
+        const statusDiv = document.getElementById('etl-status');
+        const running = document.getElementById('etl-running');
+        const success = document.getElementById('etl-success');
+        const error = document.getElementById('etl-error');
+
+        statusDiv.style.display = 'block';
+        running.style.display = 'block';
+        success.style.display = 'none';
+        error.style.display = 'none';
+
+        // Disable all buttons
+        document.querySelectorAll('.etl-btn').forEach(b => b.disabled = true);
+
+        try {
+            const resp = await fetch('/api/etl/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source }),
+            });
+            const data = await resp.json();
+
+            running.style.display = 'none';
+            if (data.status === 'complete') {
+                let html = '<strong>ETL Complete!</strong><ul>';
+                for (const [name, status] of Object.entries(data.results)) {
+                    const icon = status.includes('success') ? '&check;' : '&times;';
+                    html += `<li>${icon} ${name}: ${status}</li>`;
+                }
+                html += '</ul>';
+                success.innerHTML = html;
+                success.style.display = 'block';
+            } else {
+                error.textContent = data.message || 'Unknown error';
+                error.style.display = 'block';
+            }
+        } catch (e) {
+            running.style.display = 'none';
+            error.textContent = 'Request failed: ' + e.message;
+            error.style.display = 'block';
+        }
+
+        document.querySelectorAll('.etl-btn').forEach(b => b.disabled = false);
+    });
+});
+</script>
+{% endblock %}

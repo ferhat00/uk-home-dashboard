@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Compare Areas — UK Home Dashboard{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <h2><i class="bi bi-bar-chart me-2"></i>Compare Areas</h2>
+    </div>
+</div>
+
+<!-- Area Selector -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" action="{{ url_for('main.compare') }}" class="row g-2 align-items-end">
+                    <div class="col-md-8">
+                        <label class="form-label">Select areas to compare:</label>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for area in all_areas %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="area_check"
+                                       value="{{ area.code }}" id="check-{{ area.code }}"
+                                       {% if area.code in selected_codes %}checked{% endif %}>
+                                <label class="form-check-label" for="check-{{ area.code }}">
+                                    {{ area.code }} ({{ area.name }})
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <input type="hidden" name="areas" id="areas-input">
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button type="submit" class="btn btn-primary" onclick="updateAreasInput()">
+                            <i class="bi bi-arrow-repeat me-1"></i>Update Comparison
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Weight Sliders -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-sliders me-2"></i>Adjust Scoring Weights</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    {% for key, val in weights.items() %}
+                    <div class="col-md-3 col-sm-6">
+                        <label class="form-label text-capitalize">{{ key.replace('_', ' ') }}: <span id="w-{{ key }}-val">{{ "%.0f"|format(val * 100) }}%</span></label>
+                        <input type="range" class="form-range weight-slider" id="w-{{ key }}"
+                               min="0" max="100" value="{{ (val * 100)|int }}" data-key="{{ key }}">
+                    </div>
+                    {% endfor %}
+                </div>
+                <button class="btn btn-sm btn-outline-primary mt-2" id="btn-recalculate">
+                    <i class="bi bi-calculator me-1"></i>Recalculate Scores
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Radar Chart -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Score Comparison</h5>
+            </div>
+            <div class="card-body">
+                <div id="compare-radar" style="height: 450px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-table me-2"></i>Metric-by-Metric</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" id="comparison-table">
+                    {% if scores %}
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                {% for s in scores %}
+                                <th class="text-center">{{ s.area_code }}<br><small>{{ s.area_name }}</small></th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="table-active">
+                                <td><strong>Composite Score</strong></td>
+                                {% set best_composite = scores|map(attribute='composite_score')|max %}
+                                {% for s in scores %}
+                                <td class="text-center">
+                                    <span class="badge fs-6 {% if s.composite_score == best_composite %}bg-success{% else %}bg-secondary{% endif %}">
+                                        {{ "%.0f"|format(s.composite_score) }}
+                                    </span>
+                                    {% if s.composite_score == best_composite %}
+                                    <br><small class="text-success"><i class="bi bi-trophy-fill"></i></small>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% set metrics = [
+                                ('property_value_score', 'Property Value'),
+                                ('school_quality_score', 'School Quality'),
+                                ('crime_safety_score', 'Crime Safety'),
+                                ('transport_score', 'Transport'),
+                                ('amenities_score', 'Amenities'),
+                                ('noise_score', 'Noise'),
+                                ('green_space_score', 'Green Space'),
+                            ] %}
+                            {% for col, label in metrics %}
+                            <tr>
+                                <td>{{ label }}</td>
+                                {% set best = scores|map(attribute=col)|max %}
+                                {% for s in scores %}
+                                <td class="text-center">
+                                    {{ "%.0f"|format(s[col]) }}
+                                    {% if s[col] == best %}
+                                    <i class="bi bi-trophy-fill text-success"></i>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted">Select areas above to compare.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Area Detail Cards -->
+<div class="row g-3 mt-2">
+    {% for s in scores %}
+    <div class="col-md-{% if scores|length <= 2 %}6{% elif scores|length <= 4 %}3{% else %}4{% endif %}">
+        <div class="card h-100 {% if loop.first %}border-success{% endif %}">
+            <div class="card-header {% if loop.first %}bg-success text-white{% endif %}">
+                <h5 class="mb-0">
+                    {% if loop.first %}<i class="bi bi-trophy-fill me-1"></i>{% endif %}
+                    {{ s.area_code }} — {{ s.area_name }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <h2>{{ "%.0f"|format(s.composite_score) }}<small class="text-muted">/100</small></h2>
+                    <small class="text-muted">Rank #{{ s.rank }}</small>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Property</span>
+                        <strong>{{ "%.0f"|format(s.property_value_score) }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Schools</span>
+                        <strong>{{ "%.0f"|format(s.school_quality_score) }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Safety</span>
+                        <strong>{{ "%.0f"|format(s.crime_safety_score) }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Transport</span>
+                        <strong>{{ "%.0f"|format(s.transport_score) }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Amenities</span>
+                        <strong>{{ "%.0f"|format(s.amenities_score) }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Noise</span>
+                        <strong>{{ "%.0f"|format(s.noise_score) }}</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Green Space</span>
+                        <strong>{{ "%.0f"|format(s.green_space_score) }}</strong>
+                    </li>
+                </ul>
+                <a href="{{ url_for('main.area_detail', area_code=s.area_code) }}"
+                   class="btn btn-outline-primary btn-sm mt-3 w-100">
+                    View full details <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Area selector form
+function updateAreasInput() {
+    const checked = document.querySelectorAll('input[name="area_check"]:checked');
+    const codes = Array.from(checked).map(el => el.value);
+    document.getElementById('areas-input').value = codes.join(',');
+}
+
+// ── Radar Chart ──
+const radarData = JSON.parse('{{ radar_data|safe }}');
+if (radarData.length > 0) {
+    const colors = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#6f42c1', '#fd7e14', '#20c997', '#e83e8c'];
+    const traces = radarData.map((area, i) => ({
+        type: 'scatterpolar',
+        r: [...area.values, area.values[0]],
+        theta: [...area.labels, area.labels[0]],
+        fill: 'toself',
+        name: `${area.area_code} — ${area.area_name}`,
+        line: { color: colors[i % colors.length] },
+        opacity: 0.65,
+    }));
+
+    Plotly.newPlot('compare-radar', traces, {
+        polar: {
+            radialaxis: { visible: true, range: [0, 100] }
+        },
+        showlegend: true,
+        legend: { orientation: 'h', y: -0.15 },
+        margin: { t: 30, b: 60, l: 60, r: 60 },
+    }, { responsive: true });
+}
+
+// ── Weight sliders ──
+document.querySelectorAll('.weight-slider').forEach(slider => {
+    slider.addEventListener('input', () => {
+        document.getElementById(`w-${slider.dataset.key}-val`).textContent = `${slider.value}%`;
+    });
+});
+
+document.getElementById('btn-recalculate').addEventListener('click', () => {
+    const params = new URLSearchParams(window.location.search);
+    document.querySelectorAll('.weight-slider').forEach(slider => {
+        params.set(`w_${slider.dataset.key}`, (parseInt(slider.value) / 100).toFixed(2));
+    });
+    window.location.search = params.toString();
+});
+</script>
+{% endblock %}

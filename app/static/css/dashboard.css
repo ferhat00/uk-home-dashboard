@@ -1,0 +1,111 @@
+/* UK Home Dashboard - Custom Styles */
+
+body {
+    background-color: #f8f9fa;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: 600;
+}
+
+/* KPI Cards */
+.kpi-card {
+    border-left-width: 4px;
+    transition: transform 0.15s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Score badges */
+.score-badge {
+    font-size: 1rem;
+    min-width: 3em;
+}
+
+/* Map score tooltips */
+.score-tooltip {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: #fff;
+    font-weight: 700;
+    font-size: 12px;
+}
+
+/* Cards */
+.card {
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+.card-header {
+    background-color: transparent;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    font-weight: 500;
+}
+
+/* Tables */
+.table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6c757d;
+}
+
+/* Progress bars in settings */
+.progress {
+    border-radius: 1rem;
+}
+
+/* Responsive map */
+#overview-map,
+#detail-map {
+    border-radius: 0 0 0.5rem 0.5rem;
+}
+
+/* Leaflet popup */
+.leaflet-popup-content {
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+/* Compare card winner */
+.border-success .card-header.bg-success {
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+/* Loading spinner */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Amenity category cards */
+.card.bg-light {
+    border: 1px solid #e9ecef;
+}
+
+/* Scrollable table containers */
+.table-responsive {
+    scrollbar-width: thin;
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+}
+
+/* Layer toggle switches in detail page */
+#layer-toggles {
+    vertical-align: middle;
+}
+#layer-toggles .form-check-input {
+    cursor: pointer;
+}
+#layer-toggles .form-check-label {
+    cursor: pointer;
+    font-size: 0.85rem;
+}
