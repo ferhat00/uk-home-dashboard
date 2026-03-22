@@ -17,7 +17,11 @@ import config
 
 logger = logging.getLogger(__name__)
 
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.karte.de/api/interpreter",
+    "https://overpass.openstreetmap.ru/api/interpreter",
+]
 
 # Amenity query definitions: (label, overpass filter)
 AMENITY_QUERIES = {
@@ -92,7 +96,7 @@ def query_overpass(
     filters: list[str],
     bbox: str,
 ) -> list[dict]:
-    """Run an Overpass query and return elements."""
+    """Run an Overpass query and return elements, with fallback endpoints and retries."""
     union_parts = []
     for filt in filters:
         union_parts.append(f'  node{filt}({bbox});')
@@ -105,17 +109,24 @@ def query_overpass(
         + "\n);\nout center;"
     )
 
-    try:
-        resp = session.post(OVERPASS_URL, data={"data": query}, timeout=60)
-        if resp.status_code == 429:
-            logger.warning("Overpass rate limited, waiting 30s...")
-            time.sleep(30)
-            resp = session.post(OVERPASS_URL, data={"data": query}, timeout=60)
-        resp.raise_for_status()
-        return resp.json().get("elements", [])
-    except requests.RequestException as e:
-        logger.warning("Overpass query failed: %s", e)
-        return []
+    for attempt, url in enumerate(OVERPASS_ENDPOINTS):
+        try:
+            resp = session.post(url, data={"data": query}, timeout=90)
+            if resp.status_code == 429:
+                wait = 60 * (attempt + 1)
+                logger.warning("Overpass rate limited on %s, waiting %ds...", url, wait)
+                time.sleep(wait)
+                resp = session.post(url, data={"data": query}, timeout=90)
+            resp.raise_for_status()
+            return resp.json().get("elements", [])
+        except requests.RequestException as e:
+            logger.warning("Overpass query failed on %s: %s", url, e)
+            if attempt < len(OVERPASS_ENDPOINTS) - 1:
+                logger.info("Trying next Overpass endpoint...")
+                time.sleep(5)
+
+    logger.error("All Overpass endpoints failed for bbox %s", bbox)
+    return []
 
 
 def fetch_all() -> pd.DataFrame:
@@ -147,7 +158,7 @@ def fetch_all() -> pd.DataFrame:
                     "osm_id": el.get("id"),
                 })
 
-            time.sleep(1.0)  # Be nice to Overpass
+            time.sleep(2.5)  # Be nice to Overpass
 
     if not all_records:
         return pd.DataFrame()

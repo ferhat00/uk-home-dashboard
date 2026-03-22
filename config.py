@@ -71,7 +71,7 @@ DEFAULT_WEIGHTS = {
 REQUEST_CACHE_EXPIRY = 86400  # 24 hours in seconds
 POLICE_API_RATE_LIMIT = 15    # requests per second
 EPC_API_RATE_LIMIT = 1        # requests per second
-OVERPASS_TIMEOUT = 30          # seconds
+OVERPASS_TIMEOUT = 60          # seconds
 
 # ── Flask settings ────────────────────────────────────────────────────
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-in-production")
