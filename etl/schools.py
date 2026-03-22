@@ -8,6 +8,7 @@ Sources:
 import logging
 import sqlite3
 import math
+from datetime import date
 
 import pandas as pd
 import requests
@@ -17,10 +18,18 @@ import config
 
 logger = logging.getLogger(__name__)
 
-GIAS_URL = (
-    "https://get-information-schools.service.gov.uk/Downloads/"
-    "DownloadFile?fileType=csv&fileName=edubasealldata"
+GIAS_URL_TEMPLATE = (
+    "https://ea-edubase-api-prod.azurewebsites.net/edubase/downloads/public/"
+    "edubasealldata{date}.csv"
 )
+
+OFSTED_MI_PAGE = (
+    "https://www.gov.uk/government/statistical-data-sets/"
+    "monthly-management-information-ofsteds-school-inspections-outcomes"
+)
+
+OFSTED_RATING_MAP = {1: "Outstanding", 2: "Good", 3: "Requires improvement", 4: "Inadequate"}
+OFSTED_RATING_MAP_STR = {"1": "Outstanding", "2": "Good", "3": "Requires improvement", "4": "Inadequate"}
 
 
 def _get_session() -> requests_cache.CachedSession:
@@ -51,14 +60,23 @@ def download_gias() -> pd.DataFrame:
     if not dest.exists():
         logger.info("Downloading GIAS data...")
         session = _get_session()
-        try:
-            resp = session.get(GIAS_URL, timeout=120)
-            resp.raise_for_status()
-            with open(dest, "wb") as f:
-                f.write(resp.content)
-            logger.info("GIAS data downloaded to %s", dest)
-        except requests.RequestException as e:
-            logger.warning("Could not download GIAS data: %s", e)
+        downloaded = False
+        from datetime import timedelta
+        for days_ago in range(0, 3):
+            d = date.today() - timedelta(days=days_ago)
+            url = GIAS_URL_TEMPLATE.format(date=d.strftime("%Y%m%d"))
+            try:
+                resp = session.get(url, timeout=120)
+                resp.raise_for_status()
+                with open(dest, "wb") as f:
+                    f.write(resp.content)
+                logger.info("GIAS data downloaded from %s", url)
+                downloaded = True
+                break
+            except requests.RequestException as e:
+                logger.debug("Could not download GIAS data from %s: %s", url, e)
+        if not downloaded:
+            logger.warning("Could not download GIAS data after trying last 3 days")
             return pd.DataFrame()
 
     try:
@@ -67,6 +85,58 @@ def download_gias() -> pd.DataFrame:
         df = pd.read_csv(dest, encoding="latin-1", low_memory=False)
 
     return df
+
+
+def download_ofsted_ratings() -> dict:
+    """Download Ofsted inspection ratings from gov.uk MI data. Returns {urn: rating_string}."""
+    import re
+    try:
+        # Use uncached session to always get the latest MI page
+        page = requests.get(OFSTED_MI_PAGE, timeout=30)
+        page.raise_for_status()
+        # Find the latest "latest inspections" CSV URL
+        urls = list(set(re.findall(
+            r'https://assets\.publishing\.service\.gov\.uk/[^"]*'
+            r'latest_inspections_as_at[^"]*\.csv',
+            page.text
+        )))
+        if not urls:
+            logger.warning("Could not find Ofsted MI CSV URL on gov.uk page")
+            return {}
+        # Sort by date embedded in filename (e.g. "as_at_28_Feb_2026") — take latest
+        def _url_date(u: str):
+            m = re.search(r'as_at_(\d+)_(\w+)_(\d{4})', u)
+            if not m:
+                return ""
+            months = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"]
+            day, mon, year = m.group(1), m.group(2).lower(), m.group(3)
+            mon_n = months.index(mon) + 1 if mon in months else 0
+            return f"{year}{mon_n:02d}{int(day):02d}"
+        csv_url = sorted(urls, key=_url_date)[-1]
+        logger.info("Downloading Ofsted ratings from %s", csv_url)
+        resp = _get_session().get(csv_url, timeout=120)
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        logger.warning("Could not download Ofsted ratings: %s", e)
+        return {}
+
+    import io
+    df = pd.read_csv(
+        io.BytesIO(resp.content),
+        skiprows=2, header=0, low_memory=False, encoding="latin-1"
+    )
+    col = "Latest OEIF overall effectiveness"
+    if col not in df.columns or "URN" not in df.columns:
+        logger.warning("Ofsted MI CSV missing expected columns")
+        return {}
+
+    df["URN"] = pd.to_numeric(df["URN"], errors="coerce")
+    df = df.dropna(subset=["URN"])
+    df["URN"] = df["URN"].astype(int)
+    df["_rating"] = df[col].astype(str).map(OFSTED_RATING_MAP_STR)
+    rating_lookup = df.dropna(subset=["_rating"]).set_index("URN")["_rating"].to_dict()
+    logger.info("Loaded Ofsted ratings for %d schools", len(rating_lookup))
+    return rating_lookup
 
 
 def filter_schools(df: pd.DataFrame) -> pd.DataFrame:
@@ -222,6 +292,14 @@ def run() -> None:
     try:
         df = download_gias()
         df = filter_schools(df)
+        if not df.empty and "urn" in df.columns:
+            ofsted = download_ofsted_ratings()
+            if ofsted:
+                df["ofsted_rating"] = df["urn"].map(
+                    lambda u: ofsted.get(int(u)) if pd.notna(u) else None
+                )
+                rated = df["ofsted_rating"].notna().sum()
+                logger.info("Matched Ofsted ratings for %d/%d schools", rated, len(df))
         summaries = compute_summaries(df)
         save_to_db(df, summaries)
         logger.info("=== Schools ETL complete: %d schools ===", len(df))

@@ -109,8 +109,8 @@
                     {% for tp in type_prices %}
                     <tr>
                         <td>{{ property_type_labels.get(tp.property_type, tp.property_type) }}</td>
-                        <td>&pound;{{ "{:,.0f}"|format(tp.median_price) }}</td>
-                        <td>&pound;{{ "{:,.0f}"|format(tp.mean_price) }}</td>
+                        <td>&pound;{{ "{:,.0f}".format(tp.median_price) }}</td>
+                        <td>&pound;{{ "{:,.0f}".format(tp.mean_price) }}</td>
                         <td>{{ tp.transactions }}</td>
                     </tr>
                     {% endfor %}
@@ -127,7 +127,7 @@
                         {% for t in transactions[:20] %}
                         <tr>
                             <td><small>{{ t.date[:10] if t.date else '' }}</small></td>
-                            <td>&pound;{{ "{:,.0f}"|format(t.price) }}</td>
+                            <td>&pound;{{ "{:,.0f}".format(t.price) }}</td>
                             <td>{{ property_type_labels.get(t.property_type, t.property_type) }}</td>
                             <td><small>{{ t.paon }} {{ t.street }}</small></td>
                         </tr>

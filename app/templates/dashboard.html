@@ -38,7 +38,7 @@
                         <h4 class="card-title mb-0">{{ kpis.best_value.area_name }}</h4>
                         <small class="text-primary">
                             {% if kpis.best_value.median_price and kpis.best_value.median_price == kpis.best_value.median_price %}
-                            &pound;{{ "{:,.0f}"|format(kpis.best_value.median_price) }}
+                            &pound;{{ "{:,.0f}".format(kpis.best_value.median_price) }}
                             {% else %}
                             Score: {{ "%.1f"|format(kpis.best_value.property_value_score) }}
                             {% endif %}

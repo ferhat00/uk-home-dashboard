@@ -5,7 +5,21 @@
       "Bash(python -m pip install Flask pandas requests requests-cache plotly tqdm click python-dotenv)",
       "Bash(python -c \"from app import create_app; app = create_app\\(\\); print\\(''App created successfully''\\)\")",
       "Bash(python -c \":*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://get-information-schools.service.gov.uk/Downloads/DownloadFile?fileType=csv&fileName=edubasealldata\" -L --max-redirs 5)",
+      "Bash(curl -s -I https://get-information-schools.service.gov.uk/Downloads)",
+      "Bash(curl -s -I https://www.get-information-schools.service.gov.uk/Downloads)",
+      "Bash(sqlite3 \"c:\\\\Users\\\\Ferhat\\\\Documents\\\\GitHub\\\\uk-home-dashboard\\\\data\\\\processed\\\\dashboard.db\" \".schema schools\")",
+      "Bash(find c:UsersFerhatDocumentsGitHubuk-home-dashboard -type f \\\\\\(-name *.csv -o -name *.md -o -name README* \\\\\\))",
+      "Bash(python3:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36\" -H \"Referer: https://get-information-schools.service.gov.uk/Downloads\" \"https://get-information-schools.service.gov.uk/Downloads/DownloadFile?fileType=csv&fileName=edubasealldata\")",
+      "Bash(curl -s \"https://www.gov.uk/government/statistical-data-sets/monthly-management-information-ofsteds-school-inspections-outcomes\")",
+      "Bash(curl -s \"https://assets.publishing.service.gov.uk/media/69affb1cc78869bf8eb8a5c5/Management_information_-_state-funded_schools_-_latest_inspections_as_at_28_Feb_2026.csv\")",
+      "Bash(python run_etl.py --source schools)",
+      "Bash(python run_etl.py --source transport)",
+      "Bash(curl -s \"https://api.tfl.gov.uk/StopPoint/Mode/tube\" --max-time 10 -w \"\\\\n---HTTP %{http_code} size=%{size_download}---\\\\n\" -o /dev/null)",
+      "Bash(curl -s \"https://api.tfl.gov.uk/StopPoint?lat=51.693&lon=-0.172&radius=5000&modes=tube,overground,elizabeth-line,national-rail&stopTypes=NaptanRailStation,NaptanMetroStation\" --max-time 10)",
+      "Bash(python -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''count:'''', d.get\\(''''total'''',0\\)\\); [print\\(s.get\\(''''commonName''''\\), s.get\\(''''lat''''\\), s.get\\(''''lon''''\\)\\) for s in d.get\\(''''stopPoints'''',[]\\)[:5]]\")"
     ]
   }
 }

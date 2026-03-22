@@ -54,37 +54,45 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 
 def fetch_stations(session: requests.Session) -> pd.DataFrame:
-    """Fetch tube/overground/rail stations from TfL."""
+    """Fetch tube/overground/rail stations near areas of interest via TfL geo endpoint."""
     modes = "tube,overground,elizabeth-line,national-rail"
-    url = f"{TFL_BASE}/StopPoint/Mode/{modes}"
-    params = _tfl_params()
+    stop_types = "NaptanRailStation,NaptanMetroStation"
+    radius = 8000  # metres — covers ~5km walking distance plus buffer
+    params = {**_tfl_params(), "modes": modes, "stopTypes": stop_types, "radius": radius}
 
+    seen_ids = set()
     all_stations = []
-    try:
-        resp = session.get(url, params=params, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
 
-        stop_points = data.get("stopPoints", data) if isinstance(data, dict) else data
-        if isinstance(stop_points, dict):
-            stop_points = stop_points.get("stopPoints", [])
+    for area in config.AREAS_OF_INTEREST:
+        area_params = {**params, "lat": area["lat"], "lon": area["lng"]}
+        url = f"{TFL_BASE}/StopPoint"
+        try:
+            resp = session.get(url, params=area_params, timeout=30)
+            resp.raise_for_status()
+            data = resp.json()
+            stop_points = data.get("stopPoints", []) if isinstance(data, dict) else []
 
-        for sp in stop_points:
-            modes_list = [m.get("modeName", "") for m in sp.get("modes", [])] if isinstance(sp.get("modes"), list) else []
-            lines_list = [ln.get("name", "") for ln in sp.get("lines", [])] if isinstance(sp.get("lines"), list) else []
+            for sp in stop_points:
+                sid = sp.get("naptanId", sp.get("id", ""))
+                if sid in seen_ids:
+                    continue
+                seen_ids.add(sid)
+                raw_modes = sp.get("modes", [])
+                modes_list = [m if isinstance(m, str) else m.get("modeName", "") for m in raw_modes]
+                raw_lines = sp.get("lines", [])
+                lines_list = [ln if isinstance(ln, str) else ln.get("name", "") for ln in raw_lines]
+                all_stations.append({
+                    "station_id": sid,
+                    "name": sp.get("commonName", sp.get("name", "")),
+                    "lat": sp.get("lat"),
+                    "lng": sp.get("lon"),
+                    "modes": ", ".join(modes_list),
+                    "lines": ", ".join(lines_list),
+                })
+        except requests.RequestException as e:
+            logger.warning("Could not fetch TfL stations for %s: %s", area["code"], e)
 
-            all_stations.append({
-                "station_id": sp.get("naptanId", sp.get("id", "")),
-                "name": sp.get("commonName", sp.get("name", "")),
-                "lat": sp.get("lat"),
-                "lng": sp.get("lon"),
-                "modes": ", ".join(modes_list),
-                "lines": ", ".join(lines_list),
-            })
-
-    except requests.RequestException as e:
-        logger.warning("Could not fetch TfL stations: %s", e)
-
+    logger.info("Fetched %d unique stations near areas of interest", len(all_stations))
     return pd.DataFrame(all_stations) if all_stations else pd.DataFrame()
 
 
